@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rvio2</name>
+  <version>0.0.0</version>
+  <description>
+    Square-root robocentric visual-inertial odometry with online spatiotemporal calibration.
+  </description>
+
+  <maintainer email="zhuai@udel.edu">Zheng Huai</maintainer>
+  <license>GPLv3</license>
+
+  <!-- Use ament as build tool -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- ROS 2 dependencies -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>rosbag2_cpp</depend>
+  <depend>rosbag2_storage</depend>
+  <depend>rosbag2_transport</depend>
+  <depend>cv_bridge</depend>
+  <exec_depend>ros2launch</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
