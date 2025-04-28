@@ -26,7 +26,7 @@ docker build -t my_image .devcontainer
     systems_ws
 	```
 
-1. Running camera node
+1. Running individual node
 
     ```bash
     // Launch both the camera, imu, kinematics and object tracker
