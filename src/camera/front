@@ -1,0 +1,76 @@
+#include <Wire.h>
+
+// Motor pins (front-left and front-right)
+#define FRONT_IN1 25
+#define FRONT_IN2 26
+#define FRONT_ENA 33
+
+// I2C settings
+#define BACK_ADDRESS 0x55  // Back ESP32's I2C address
+
+// Function to set motor speed and direction
+void setMotor(int dir, int dutyCycle, int in1, int in2) {
+  analogWrite(FRONT_ENA, dutyCycle);  // Use analogWrite instead of ledcWrite
+  if (dir == 1) {
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+  } else if (dir == -1) {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+  } else {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();  // Initialize as I2C master
+
+  // Set motor pins as outputs
+  pinMode(FRONT_IN1, OUTPUT);
+  pinMode(FRONT_IN2, OUTPUT);
+  pinMode(FRONT_ENA, OUTPUT);
+}
+
+void loop() {
+  // Check if serial data is available
+  if (Serial.available() >= 8) {  // Wait for 8 bytes (2 floats: angle and distance)
+    // Read the angle and distance from serial
+    byte bytes[8];
+    Serial.readBytes(bytes, 8);  // Read 8 bytes into the array
+
+    // Convert bytes back to floats
+    float angle = *((float*)bytes);       // First 4 bytes: angle
+    float distance = *((float*)(bytes + 4));  // Next 4 bytes: distance
+
+    // Debugging: Print received values
+    Serial.print("Received angle: ");
+    Serial.print(angle);
+    Serial.print(", distance: ");
+    Serial.println(distance);
+
+    // Control front motors
+    if (distance <= 20.0) {
+      // Stop front motors
+      setMotor(0, 0, FRONT_IN1, FRONT_IN2);
+    } else {
+      if (angle > 5.0) {
+        // Turn left
+        setMotor(-1, 150, FRONT_IN1, FRONT_IN2);
+      } else if (angle < -5.0) {
+        // Turn right
+        setMotor(1, 150, FRONT_IN1, FRONT_IN2);
+      } else {
+        // Move forward
+        setMotor(1, 200, FRONT_IN1, FRONT_IN2);
+      }
+    }
+
+    // Send motor commands to back ESP32 via I2C
+    Wire.beginTransmission(BACK_ADDRESS);
+    Wire.write((byte)(angle * 100));  // Send angle as integer (scaled by 100)
+    Wire.write((byte)(distance));     // Send distance as integer
+    Wire.endTransmission();
+  }
+}

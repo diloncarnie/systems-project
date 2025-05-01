@@ -1,0 +1,63 @@
+#include <Wire.h>
+
+// Motor pins (back-left and back-right)
+#define BACK_IN3 5
+#define BACK_IN4 18
+#define BACK_ENB 19
+
+// I2C settings
+#define SLAVE_ADDR 0x55  // Must match master's BACK_ADDRESS
+
+// Function to set motor speed and direction
+void setMotor(int dir, int dutyCycle, int in1, int in2) {
+  analogWrite(BACK_ENB, dutyCycle);  // Use analogWrite instead of ledcWrite
+  if (dir == 1) {
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+  } else if (dir == -1) {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+  } else {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+  }
+}
+
+// I2C Receive Handler
+void receiveData(int byteCount) {
+  if (Wire.available() >= 2) {
+    int angle = Wire.read();  // Read angle (scaled by 100)
+    int distance = Wire.read();  // Read distance
+
+    // Control back motors
+    if (distance <= 20) {
+      // Stop back motors
+      setMotor(0, 0, BACK_IN3, BACK_IN4);
+    } else {
+      if (angle > 500) {  // angle > 5.0 (scaled by 100)
+        // Turn left
+        setMotor(-1, 150, BACK_IN3, BACK_IN4);
+      } else if (angle < -500) {  // angle < -5.0 (scaled by 100)
+        // Turn right
+        setMotor(1, 150, BACK_IN3, BACK_IN4);
+      } else {
+        // Move forward
+        setMotor(1, 200, BACK_IN3, BACK_IN4);
+      }
+    }
+  }
+}
+
+void setup() {
+  Wire.begin(SLAVE_ADDR);  // Initialize as I2C slave
+  Wire.onReceive(receiveData);
+
+  // Set motor pins as outputs
+  pinMode(BACK_IN3, OUTPUT);
+  pinMode(BACK_IN4, OUTPUT);
+  pinMode(BACK_ENB, OUTPUT);
+}
+
+void loop() {
+  // Nothing to do here; motor control is handled in receiveData()
+}

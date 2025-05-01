@@ -1,0 +1,139 @@
+
+#include <rclcpp/rclcpp.hpp>
+#include <opencv2/opencv.hpp>
+
+class ColorDetectionNode : public rclcpp::Node {
+public:
+    ColorDetectionNode() : Node("color_detection_node") {
+        this->declare_parameter<std::string>("target_color", "yellow"); // Yellow
+        timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(30),
+            std::bind(&ColorDetectionNode::process_frame, this)
+        );
+        RCLCPP_INFO(this->get_logger(), "Color Detection Node started.");
+    }
+
+private:
+    rclcpp::TimerBase::SharedPtr timer_;
+    cv::VideoCapture camera_;
+
+    // Parameters 
+    const double CAMERA_FOV_DEG = 60.0; 
+
+    void process_frame() {
+        if (!camera_.isOpened()) {
+            camera_.open(0);
+            if (!camera_.isOpened()) {
+                RCLCPP_ERROR(this->get_logger(), " camera not opening");
+                return;
+            }
+        }
+
+        cv::Mat frame;
+        camera_ >> frame;
+        if (frame.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "empty frame");
+            return;
+        }
+
+        // HSV
+        cv::Mat hsvFrame;
+        cv::cvtColor(frame, hsvFrame, cv::COLOR_BGR2HSV);
+
+        //selected color 
+        std::string target_color;
+        this->get_parameter("target_color", target_color);
+
+        // HSV ranges
+        cv::Scalar lowerColor, upperColor;
+        if (target_color == "yellow") {
+            lowerColor = cv::Scalar(20, 100, 100);
+            upperColor = cv::Scalar(40, 255, 255);
+        }
+        else if (target_color == "blue") {
+            lowerColor = cv::Scalar(100, 50, 50);
+            upperColor = cv::Scalar(140, 255, 255);
+        }
+        else if (target_color == "black") {
+            lowerColor = cv::Scalar(0, 0, 0);
+            upperColor = cv::Scalar(180, 255, 50);
+        }
+        else if (target_color == "white") {
+            lowerColor = cv::Scalar(0, 0, 200);
+            upperColor = cv::Scalar(180, 30, 255);
+        }
+        else if (target_color == "red") {
+            cv::Scalar lowerRed1(0, 50, 50), upperRed1(10, 255, 255);
+            cv::Scalar lowerRed2(160, 50, 50), upperRed2(180, 255, 255);
+            cv::Mat redMask1, redMask2;
+            cv::inRange(hsvFrame, lowerRed1, upperRed1, redMask1);
+            cv::inRange(hsvFrame, lowerRed2, upperRed2, redMask2);
+            cv::addWeighted(redMask1, 1.0, redMask2, 1.0, 0.0, redMask1);
+            detect_color(frame, redMask1, "Red");
+            return;
+        }
+        else {
+            RCLCPP_WARN(this->get_logger(), "invalid color! so its yellow");
+            lowerColor = cv::Scalar(20, 100, 100);
+            upperColor = cv::Scalar(40, 255, 255);
+        }
+
+        // mask 
+        cv::Mat colorMask;
+        cv::inRange(hsvFrame, lowerColor, upperColor, colorMask);
+        detect_color(frame, colorMask, target_color);
+    }
+
+    void detect_color(cv::Mat& frame, cv::Mat& mask, const std::string& color_name) {
+        // contours
+        std::vector<std::vector<cv::Point>> contours;
+        std::vector<cv::Vec4i> hierarchy;
+        cv::findContours(mask, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+        if (!contours.empty()) {
+            // the largest contour
+            double maxArea = 0;
+            std::vector<cv::Point> largestContour;
+            for (const auto& contour : contours) {
+                double area = cv::contourArea(contour);
+                if (area > maxArea) {
+                    maxArea = area;
+                    largestContour = contour;
+                }
+            }
+
+            if (!largestContour.empty()) {
+                // centroid of the largest detected object
+                cv::Moments M = cv::moments(largestContour);
+                if (M.m00 != 0) {
+                    int cx = static_cast<int>(M.m10 / M.m00);
+                    int cy = static_cast<int>(M.m01 / M.m00);
+
+                    // centroid on the frame
+                    cv::circle(frame, cv::Point(cx, cy), 5, cv::Scalar(0, 255, 0), -1);
+
+                    // angle θ  to the center of the camera
+                    int frameWidth = frame.cols;
+                    double angle = ((cx - frameWidth / 2.0) / (frameWidth / 2.0)) * (CAMERA_FOV_DEG / 2.0);
+
+                    RCLCPP_INFO(this->get_logger(), "%s detected at angle: %.2f degrees", color_name.c_str(), angle);
+                }
+            }
+        }
+
+        // show frames
+        cv::imshow("Camera Stream", frame);
+        cv::imshow(color_name + " Detection", mask);
+
+        if (cv::waitKey(30) == 'q') {
+            rclcpp::shutdown();
+        }
+    }
+};
+
+int main(int argc, char** argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<ColorDetectionNode>());
+    rclcpp::shutdown();
+    return 0;
+}
