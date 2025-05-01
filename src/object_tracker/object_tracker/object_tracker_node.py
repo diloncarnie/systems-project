@@ -64,15 +64,11 @@ class ObjectTracker(Node):
 
         
         
-        
     def track_object(self, data):
         twist = Twist()
         if(self.state=="pickup"):
             self.min_tracking_size = MIN_OBJECT_SIZE
             self.max_tracking_size = MAX_OBJECT_SIZE
-        elif(self.state=="place"):
-            self.min_tracking_size = MIN_BOX_SIZE
-            self.max_tracking_size = MAX_BOX_SIZE
         else:
             self.get_logger().info('Tracking is deactivated')
             self.tracker_state = "deactivated"
@@ -202,34 +198,6 @@ class ObjectTracker(Node):
                     else:
                         angular_velocity = self.angular_velocity_gain * error
                     
-                    
-                        
-                elif(self.state =="place"):
-                    # Adjust speed according to distance in meters
-                    mapped_distance = np.interp(self.distance, [0.02, 0.3], [0.0, 0.3])
-                    if (self.distance) < 0.3:
-                        self.tracker_state = "close"
-                        self.pub_tracker_state_.publish(String(data=self.tracker_state))
-                        if(mapped_distance<DROPPING_DISTANCE):
-                            linear_velocity = 0
-                            self.tracker_state = "waiting"
-                            self.pub_tracker_state_.publish(String(data=self.tracker_state))
-                        else:
-                            linear_velocity = self.linear_velocity_gain * mapped_distance       
-                    else:
-                        linear_velocity = 0.25
-
-                    # Keep the centroid in the center of the ROI
-                    if(self.tracker_state != "waiting"):
-                        if abs(error) > 30 & (self.tracker_state != "waiting"):
-                            linear_velocity = 0.0
-                            angular_velocity = self.angular_velocity_gain * error
-                            angular_velocity = np.clip(angular_velocity, -1.0, 1.0)
-                            
-                        else:
-                            angular_velocity = self.angular_velocity_gain * error
-                    else:
-                        angular_velocity = 0.0
             
                 # Publish the velocity commands
                 self.get_logger().info(f'Linear Velocity: {linear_velocity} |  Angular Velocity {angular_velocity}')

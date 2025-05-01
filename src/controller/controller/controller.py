@@ -58,9 +58,19 @@ class Controller(Node):
             while rclpy.ok():
 
                 state_input = input("Enter state: ")
-                colour_input = "yellow"
-                self.colour = colour_input
+                if state_input == "pickup":
+                    colour_input = input("Enter colour: ")
+                    if colour_input not in self.colours:
+                        self.get_logger().info(f"Invalid colour: {colour_input}. Valid colours are: {self.colours}")
+                        continue
+                    else:
+                        self.get_logger().info(f"Colour: {colour_input}")
+                        self.colour = colour_input
+                        self.get_logger().info(f"Updated state to: {self.state}")
+                        return
+                
                 self.state = state_input
+                
                 self.get_logger().info(f"Updated state to: {self.state}")
                 return
     
@@ -84,10 +94,7 @@ class Controller(Node):
             self.state = "-"
             self.pub_state_.publish(String(data=self.state))
             return
-            
-            
-            
-            
+                  
         # Pickup workflowmove 
         if(self.state == "pickup"):
             self.get_logger().info(f'Picking up {self.colour}')
@@ -118,27 +125,6 @@ class Controller(Node):
                 time.sleep(2)
                 #time.sleep(ACTUATOR_PULLUP_TIME)
                 self.get_logger().info('Pick up success')
-                return
-                
-        if (self.state == "place"):   
-            self.get_logger().info(f'Placing {self.colour}')
-            self.pub_colour_.publish(String(data=self.colour))
-            self.pub_state_.publish(String(data=self.state))
-            if(self.tracker_state == "waiting"):
-                self.get_logger().info('Waiting for place!')
-                # Set state to none
-                self.state = "-"
-                self.pub_state_.publish(String(data=self.state))
-                # Open gripper to drop object
-                self.pub_gripper_.publish(UInt8(data=GRIPPER_OPEN_ANGLE))
-                time.sleep(GRIPPER_DELAY)
-                # Move bacwards to push down actuator to base
-                cmd_vel_msg = Twist()  # All fields default to 0.0
-                cmd_vel_msg.linear.x = -0.1  # Set backwards motion
-                self.pub_cmd_vel_.publish(cmd_vel_msg)
-                time.sleep(1.0)
-                cmd_vel_msg.linear.x = 0.0  # Stop motion
-                self.pub_cmd_vel_.publish(cmd_vel_msg)
                 return
         
         if (self.state == "open"):
